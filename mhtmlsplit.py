@@ -38,6 +38,14 @@ def getOutputHtmlName(inName):
         # Replace the last extension with html
         return basename[:dot] + ".html"
 
+def getResDirName(inName):
+    basename = os.path.basename(inName)
+    dot = basename.find(".") # share the name up to the first dot, append _files
+    if dot == -1:
+        return basename + "_files"
+    
+    return basename[:dot] + "_files"
+
 def main():
     # Parse CLI arguments and filename
     parser = argparse.ArgumentParser("Convert MHTML archives to individual files")
@@ -57,6 +65,9 @@ def main():
     except IOError as e:
         print(f"Failed to open '{e.filename}': {e.strerror}", file=sys.stderr)
         exit(1)
+    
+    # Make a directory for the output files to go into
+    os.mkdir(getResDirName(args.mhtml_file))
     
     mhtml_data = mhtml_file.read()
     pointer = mhtml_data.find(b"\r\n\r\n\r\n") + 6 # pointer where to look for the next boundary, start after the header
@@ -79,6 +90,13 @@ def main():
         # Write out the file under an appropriate name
         if part == 0:
             # The first part is assumed to be the main HTML document
+            if not args.html_only:
+                # TODO: rewrite external resources in the HTML to be local ones
+                # Rewrite the URLs to be local ones, I guess hash the path up to that point to avoid duplication
+                # Having the page URL may also be useful for relative URLs
+                # Not all instances of src/href/content/etc need to be replaced I guess (e.g. within <a> tags)
+                pass
+            
             htmlFile = open(getOutputHtmlName(args.mhtml_file), 'wb')
             htmlFile.write(part_data)
             htmlFile.close()
