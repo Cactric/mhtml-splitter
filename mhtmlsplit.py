@@ -28,6 +28,16 @@ def get_boundary(header):
                     # Return the boundary with quotes removed
                     return ctvalue[1:-1]
 
+def getOutputHtmlName(inName):
+    basename = os.path.basename(inName)
+    dot = basename.rfind(".")
+    if dot == -1:
+        # No extension, just add .html
+        return basename + ".html"
+    else:
+        # Replace the last extension with html
+        return basename[:dot] + ".html"
+
 def main():
     # Parse CLI arguments and filename
     parser = argparse.ArgumentParser("Convert MHTML archives to individual files")
@@ -49,17 +59,40 @@ def main():
         exit(1)
     
     mhtml_data = mhtml_file.read()
-    pointer = mhtml_data.find(b"\r\n\r\n") # pointer where to look for the next boundary, start after the header
+    pointer = mhtml_data.find(b"\r\n\r\n\r\n") + 6 # pointer where to look for the next boundary, start after the header
     boundary = get_boundary(mhtml_data[:pointer]) # find the boundary within the header
     log_info(f"Boundary is {str(boundary, encoding="iso-8859-1")}", args.verbose)
     
-    finished = False
-    while not finished:
-        print("Got to the boundary loop, exiting")
-        break
+    boundaryLine = b"".join((b"--", boundary ,b"\r\n"))
+    # Skip to after the first boundary
+    pointer += len(boundaryLine)
     
+    finished = False
+    part = 0
+    while not finished:
+        data_end = pointer + mhtml_data[pointer:].find(boundaryLine)
+        nextpointer = data_end + len(boundaryLine)
+        data_start = pointer + mhtml_data[pointer:nextpointer].find(b"\r\n\r\n") + 4
+        part_data = mhtml_data[data_start:data_end]
+        # TODO: parse part heading (contains encoding, MIME type, an ID and its original location -- which will probably be referenced in the HTML)
+        
+        # Write out the file under an appropriate name
+        if part == 0:
+            # The first part is assumed to be the main HTML document
+            htmlFile = open(getOutputHtmlName(args.mhtml_file), 'wb')
+            htmlFile.write(part_data)
+            htmlFile.close()
+        else:
+            pass
+    
+        pointer = nextpointer
+        part += 1
+        if args.html_only:
+            finished = True
+
     log_info("Closing file", args.verbose)
     mhtml_file.close()
+    log_info(f"Summary: {part} parts written", args.verbose)
     
 if __name__ == '__main__':
     main()
