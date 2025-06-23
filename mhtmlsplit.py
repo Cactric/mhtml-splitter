@@ -119,7 +119,6 @@ def main():
     # Parse CLI arguments and filename
     parser = argparse.ArgumentParser("Convert MHTML archives to individual files")
     parser.add_argument("-o", "--html-only", action="store_true", help="Only extract the HTML (this will leave the HTML unchanged, typically remote sources will be rewritten to local ones)")
-    parser.add_argument("-i", "--inline", action="store_true", help="Try to inline as many files as possible into the HTML file (not yet implemented)")
     parser.add_argument("-j", "--remove-js", action="store_true", help="Remove scripts from the extracted files (not fully implemented?)")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("mhtml_file", help="The MHTML file the split")
