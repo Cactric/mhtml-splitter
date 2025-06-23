@@ -13,17 +13,26 @@ class LocaliserParser(html.parser.HTMLParser):
     locations = []
     mainFile = ""
     output = ""
-    rawdata = None
     
-    def __init__(self, ls, inName, *, convert_charrefs=True):
+    def __init__(self, ls, inName, remove_js, *, convert_charrefs=True):
         super().__init__()
         self.locations = ls
         self.mainFile = inName
+        self.remove_js = remove_js
     
     def handle_starttag(self, tag, attrs):
+        # If -j is defined, skip script tags
+        if self.remove_js:
+            if tag == "script":
+                return
+        
         self.output += "<" + tag
         for attr in attrs:
             (key,value) = attr
+            
+            if self.remove_js and key in ["onerror", "onclick"]: #TODO: maybe more attributes?
+                continue
+            
             if key in ["href","src","content"]:
                 if value in self.locations:
                     # Replace it with the local file
@@ -186,12 +195,14 @@ def main():
                         r.location = str(value, encoding="utf-8")
                     except UnicodeEncodeError:
                         r.location = str(value, encoding="iso-8819-1")
+            if (r.content_type == "text/javascript" or r.location.endswith(".js")) and args.remove_js:
+                continue
+            
             r.data = part_data
             resources.append(r)
             if r.location is not None:
-                # TODO: remove parameters from the path
                 path = getResRelativePath(args.mhtml_file, r.location)
-                resFile = open(path, 'wb')
+                resFile = open(path, 'xb')
                 resFile.write(r.getDecodedData())
                 resFile.close()
                 
@@ -204,13 +215,13 @@ def main():
 
     if not args.html_only:
         # Rewrite the URLs to be local ones, I guess hash the path up to that point to avoid duplication
+        # TODO: relative URLs
         # Having the page URL may also be useful for relative URLs
-        # Not all instances of src/href/content/etc need to be replaced I guess (e.g. within <a> tags)
         locations = []
         for r in resources:
             if r.location is not None:
                 locations.append(r.location)
-        parser = LocaliserParser(locations, args.mhtml_file, convert_charrefs=False)
+        parser = LocaliserParser(locations, args.mhtml_file, args.remove_js, convert_charrefs=False)
         html_string = str(html_data, encoding="utf-8") # TODO: use specified charset in the html
         parser.feed(html_string)
         processed_html_data = parser.output
