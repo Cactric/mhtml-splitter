@@ -13,21 +13,25 @@ class LocaliserParser(html.parser.HTMLParser):
     locations = []
     mainFile = ""
     output = ""
+    rawdata = None
     
     def __init__(self, ls, inName, *, convert_charrefs=True):
-        locations = ls
-        mainFile = inName
+        super().__init__()
+        self.locations = ls
+        self.mainFile = inName
     
     def handle_starttag(self, tag, attrs):
         self.output += "<" + tag
         for attr in attrs:
-            (key,value) = attr.split("=")
-            if value[0] == '"' and value[-1] == '"':
-                value = value[1:-1]
-            if value in locations:
-                # Replace it with the local file
-                value = f"\"{getResRelativePath(self.mainFile, value)}\""
-            self.output += f"{key}=\"{value}\""
+            (key,value) = attr
+            if key in ["href","src","content"]:
+                if value in self.locations:
+                    # Replace it with the local file
+                    self.output += f" {key}=\"{getResRelativePath(self.mainFile, value)}\""
+                else:
+                    self.output += f" {key}=\"{value}\""
+            else:
+                self.output += f" {key}=\"{value}\""
         self.output += ">"
     
     def handle_endtag(self, tag):
@@ -93,8 +97,14 @@ def getResDirName(inName):
     return basename[:dot] + "_files"
 
 def getResRelativePath(inName, inLocation):
-    (path, basename) = inLocation.rsplit("/", 1)
-    return getResDirName(inName) + "/" + hex(+hash(path)) + basename
+    if inLocation.rfind("?") != -1:
+        inLocation = inLocation[:inLocation.rfind("?")]
+    if inLocation.rfind("/") == -1:
+        path = "none"
+        basename = inLocation
+    else:
+        (path, basename) = inLocation.rsplit("/", 1)
+    return getResDirName(inName) + "/" + str(hash(path) if hash(path) >= 0 else -hash(path)) + basename
 
 def main():
     # Parse CLI arguments and filename
@@ -179,12 +189,13 @@ def main():
             r.data = part_data
             resources.append(r)
             if r.location is not None:
+                # TODO: remove parameters from the path
                 path = getResRelativePath(args.mhtml_file, r.location)
                 resFile = open(path, 'wb')
                 resFile.write(r.getDecodedData())
                 resFile.close()
                 
-                print(f"Saved {r.location} as {path}")
+                log_info(f"Saved {r.location} as {path}", args.verbose)
     
         pointer = nextpointer
         part += 1
@@ -192,7 +203,6 @@ def main():
             finished = True
 
     if not args.html_only:
-        # TODO: rewrite external resources in the HTML to be local ones
         # Rewrite the URLs to be local ones, I guess hash the path up to that point to avoid duplication
         # Having the page URL may also be useful for relative URLs
         # Not all instances of src/href/content/etc need to be replaced I guess (e.g. within <a> tags)
@@ -201,9 +211,12 @@ def main():
             if r.location is not None:
                 locations.append(r.location)
         parser = LocaliserParser(locations, args.mhtml_file, convert_charrefs=False)
+        html_string = str(html_data, encoding="utf-8") # TODO: use specified charset in the html
+        parser.feed(html_string)
+        processed_html_data = parser.output
     
     htmlFile = open(getOutputHtmlName(args.mhtml_file), 'wb')
-    htmlFile.write(html_data if args.html_only else b"") # processed_html_data
+    htmlFile.write(html_data if args.html_only else bytes(processed_html_data, encoding="utf-8"))
     htmlFile.close()
 
     log_info("Closing file", args.verbose)
