@@ -132,10 +132,11 @@ def main():
         exit(1)
     
     # Make a directory for the output files to go into
-    try:
-        os.mkdir(getResDirName(args.mhtml_file))
-    except FileExistsError:
-        pass
+    if not args.html_only and not args.inline:
+        try:
+            os.mkdir(getResDirName(args.mhtml_file))
+        except FileExistsError:
+            pass
     
     mhtml_data = mhtml_file.read()
     pointer = mhtml_data.find(b"\r\n\r\n\r\n") + 6 # pointer where to look for the next boundary, start after the header
@@ -226,7 +227,7 @@ def main():
         if args.inline:
             for r in resources:
                 base64data = str(base64.b64encode(r.data), encoding="utf-8")
-                print(f"replacing {getResRelativePath(args.mhtml_file, r.location)} with {len(base64data)} bytes of base64")
+                log_info(f"replacing {getResRelativePath(args.mhtml_file, r.location)} with {len(base64data)} bytes of base64", args.verbose)
                 processed_html_data = processed_html_data.replace(getResRelativePath(args.mhtml_file, r.location), f"data:{r.content_type};base64," + base64data)
     
     htmlFile = open(getOutputHtmlName(args.mhtml_file), 'wb')
