@@ -4,7 +4,7 @@
 # arguments: --remove-js, --inline, --html-only
 
 # Standard library imports
-import argparse, html.parser, os, sys
+import argparse, html.parser, base64, os, sys
 
 class LocaliserParser(html.parser.HTMLParser):
     locations = []
@@ -118,6 +118,7 @@ def main():
     parser.add_argument("-o", "--html-only", action="store_true", help="Only extract the HTML (this will leave the HTML unchanged, typically remote sources will be rewritten to local ones)")
     parser.add_argument("-j", "--remove-js", action="store_true", help="Remove scripts from the extracted files (not fully implemented?)")
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("-i", "--inline", action="store_true", help="Produce one file with images, etc. embedded as data: URLs")
     parser.add_argument("mhtml_file", help="The MHTML file the split")
     
     args = parser.parse_args()
@@ -195,7 +196,7 @@ def main():
             
             r.data = part_data
             resources.append(r)
-            if r.location is not None:
+            if r.location is not None and not args.inline:
                 path = getResRelativePath(args.mhtml_file, r.location)
                 resFile = open(path, 'xb')
                 resFile.write(r.getDecodedData())
@@ -220,6 +221,13 @@ def main():
         html_string = str(html_data, encoding="utf-8") # TODO: use specified charset in the html
         parser.feed(html_string)
         processed_html_data = parser.output
+        
+        # If doing inline images, embed them now
+        if args.inline:
+            for r in resources:
+                base64data = str(base64.b64encode(r.data), encoding="utf-8")
+                print(f"replacing {getResRelativePath(args.mhtml_file, r.location)} with {len(base64data)} bytes of base64")
+                processed_html_data = processed_html_data.replace(getResRelativePath(args.mhtml_file, r.location), f"data:{r.content_type};base64," + base64data)
     
     htmlFile = open(getOutputHtmlName(args.mhtml_file), 'wb')
     htmlFile.write(html_data if args.html_only else bytes(processed_html_data, encoding="utf-8"))
