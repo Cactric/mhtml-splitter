@@ -6,9 +6,6 @@
 # Standard library imports
 import argparse, html.parser, os, sys
 
-class MhtmlParseException(Exception):
-    pass
-
 class LocaliserParser(html.parser.HTMLParser):
     locations = []
     mainFile = ""
