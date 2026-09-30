@@ -192,7 +192,7 @@ def main():
                         r.location = str(value, encoding="utf-8")
                     except UnicodeEncodeError:
                         r.location = str(value, encoding="iso-8819-1")
-            if (r.content_type == "text/javascript" or r.location.endswith(".js")) and args.remove_js:
+            if args.remove_js and (r.content_type == "text/javascript" or (r.location and r.location.endswith(".js"))):
                 continue
             
             r.data = part_data
