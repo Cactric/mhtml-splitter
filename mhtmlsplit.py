@@ -119,7 +119,7 @@ def main():
     parser.add_argument("-j", "--remove-js", action="store_true", help="Remove scripts from the extracted files (not fully implemented?)")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("-i", "--inline", action="store_true", help="Produce one file with images, etc. embedded as data: URLs")
-    parser.add_argument("mhtml_file", help="The MHTML file the split")
+    parser.add_argument("mhtml_file", help="The MHTML file to split")
     
     args = parser.parse_args()
     
